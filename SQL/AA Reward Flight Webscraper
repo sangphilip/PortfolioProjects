@@ -1,0 +1,190 @@
+#importing the necessary modules to webscrape/manipulate HTML code/put in pandas dataframe to display it nicely
+from time import sleep
+from random import randint
+import pandas as pd
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from bs4 import BeautifulSoup
+from IPython.display import display, HTML
+
+'''
+This function asks the user to input the departure airport code
+the arrival airport code and date for the flight that the user would 
+like to view for available reward flight tickets on AA.com
+'''
+def start_scraper():
+    #This while loop makes sure that there is no error when retrieving the webpage due to
+    #user error
+    
+    check = True
+    while check:
+    
+        #Getting user input
+        #Origin, destination and date variables for the flight details we want
+        #This while loop asks for origin airportcode and checks if it is 3 letters
+        while True:
+            ori = input('Please enter your desired departure airport code(3 Letters): ')
+            if len(ori) == 3 and ori.isalpha():
+                break
+            else:
+                print('You did not enter a 3 letter airport code, please try again.')
+
+        #This while loop asks for destination airportcode and checks if it is 3 letters        
+        while True:        
+            des = input('Please enter your desired arrival airport code(3 Letters): ')
+            if len(des) == 3 and ori.isalpha():
+                break
+            else:
+                print('You did not enter a 3 letter airport code, please try again.')
+
+        year = input('Please enter your flight date year: ')
+
+        #Creating a dictionary to change format of the day/month since 
+        #it needs to be in two digit format otherwise webpage will not load properly
+        digit_converter = {'1':'01', '2':'02', '3':'03', '4':'04', '5':'05', '6':'06','7':'07', '8':'08','9':'09'}
+
+        #This while loop checks if it is a valid month
+        m = True
+        while m:
+            try:
+                month = int(input('Please enter your flight month: '))
+                if month>0 and month <=12:
+                    m = False
+                else:
+                    print('You did not enter a valid month, please try again.')
+            except:
+                print('You did not enter a valid month, please try again.')
+
+
+        #This while loop checks if it is a valid day
+        #Creating a list for month with 31 days
+        longer_month = [1,3, 5,7,8,10,12]
+        #Creating list for month with 30 days
+        shorter_month = [4,6,9,11]
+        d = True
+        while d:
+            try:
+                day = int(input('Please enter your flight day: '))
+                if month in longer_month and day >0 and day <=31:
+                    d = False
+                elif month in shorter_month and day >0 and day <=30:
+                    d = False
+                elif month == 2 and day >0 and day <=28:
+                    d = False
+                else:
+                    print('You did not enter a valid day, please try again.')
+            except:
+                print('You did not enter a valid day, please try again.')
+
+
+        #Converting month/day into two digit string format
+        if str(month) in digit_converter:
+            month = digit_converter[str(month)]
+        else:
+            month = str(month)
+        if str(day) in digit_converter:
+            day = digit_converter[str(day)]
+        else:
+            day = str(day)
+        #Creating web browser using Selenium
+        driver = webdriver.Chrome()
+
+        #Setting URL for webpage we want to webscrape
+        aa = 'https://www.aa.com/booking/search?locale=en_US&pax=1&adult=1&type=OneWay&searchType=Award&cabin=&carriers=ALL&slices=%5B%7B%22orig%22:%22'+ori+'%22,%22origNearby%22:false,%22dest%22:%22'+des+'%22,%22destNearby%22:false,%22date%22:%22'+year+'-'+month+'-'+day+'%22%7D%5D'
+
+        #Getting the webpage
+        driver.get(aa)
+        
+        #Sleeping for random time between 5 and 8 seconds so webpage can load
+        sleep(randint(5,8))
+        
+        #This looks for the error message that show up when there are no flight data because of 
+        #user input
+        error_check = driver.find_elements(By.XPATH, '//div[@class="notification-error-message"]')
+        
+        #If there is data loaded then we will break out of the while loop to continue the program
+        if len(error_check) == 0:
+            check = False
+        else:
+            print('Please check the information you provided and try again!')
+    
+    #Getting flight details through xpath looking for div class of all the reward flights
+    flight_rows = driver.find_elements(By.XPATH, '//div[@class="grid-x grid-padding-x ng-star-inserted"]')
+    
+    #Creating list variables of the information we want to pull from
+    #the website that we will be able to insert into a pandas dataframe
+    mileage = []
+    tax_amount = []
+    flight_class = []
+    flight_duration = []
+    dep = []
+    arr = []
+    dep_time = []
+    arr_time = []
+    
+    #Loop that extracts the flight information we want from all the flights
+    for WebElement in flight_rows:
+        #This gives the exact HTML content of the webelement
+        elementHTML = WebElement.get_attribute('outerHTML')
+        
+        #Now we can parse with beautifulsoup to extract the info that we want
+        elementSoup = BeautifulSoup(elementHTML, 'html.parser')
+        
+        #Finding flight duration
+        flight= elementSoup.find("div", {"class" : "duration"})
+        #Finding departure and arrival cities
+        departure = elementSoup.find("div", {"class" : "cell large-3 origin"})
+        arrival = elementSoup.find("div", {"class": "cell large-3 destination"})
+        
+        #Finding the blocks containing flight prices
+        temp_price = elementSoup.find_all("div", {"class": "cell auto pad-left-xxs pad-right-xxs ng-star-inserted"})
+        
+        #There are multiple flight prices between different fare classes so
+        #using a for loop to iterate through all prices of the same flight
+        for x in temp_price:
+            #This finds the mileage costs, tax costs and fare class of the flight
+            miles = x.find("span", {"class" : "per-pax-amount ng-star-inserted"})
+            taxes = x.find("div", {"class" : "per-pax-addon ng-star-inserted"})
+            carriage = x.find("span", {"class" : "hidden-accessible hidden-product-type"})
+            
+            #Need this if statement since there are fares with None type which cause errors when appending the data
+            if miles != None and taxes != None:
+                #Appending all the necessary data to the corresponding lists created above
+                mileage.append(miles.text)
+                tax_amount.append(taxes.text)
+                flight_class.append(carriage.text)
+                flight_duration.append(flight.text)
+                dep.append(departure.find("div", {"class": "city-code"}).text)
+                arr.append(arrival.find("div", {"class": "city-code"}).text)
+                dep_time.append(departure.find("div", {"class": "flt-times"}).text)
+                arr_time.append(arrival.find("div", {"class": "flt-times"}).text)
+            else:
+                continue
+    #Changing from string to float to display as 42500.0 instead of 42.5K
+    #which causes sorting errors when sorting through string
+    new_miles = [float(sub[:-1])*1000 for sub in mileage]    
+    
+    #This creates a dictionary with the name as key and the lists as values so
+    #we can import these into a pandas dataframe
+    dict = {'Origin' : dep, 'Destination' : arr, 'Departure_Time' : dep_time,
+        'Arrival_Time' : arr_time, "Duration" : flight_duration,
+       'Class' : flight_class, 'Miles' : new_miles, 'Tax' : tax_amount}
+    
+    #Creating the pandas dataframe from the dictionary created before
+    df = pd.DataFrame(dict)
+    
+    #Creating a Date column
+    df['Date'] = month+'/'+day
+    df.set_index('Date', inplace=True)
+    
+    #Changing the column from float to int to drop decimal points when displaying the values
+    df['Miles'] = df['Miles'].astype(int)
+    
+    #Sorting the df by Miles and flight time ascending
+    df = df.sort_values(['Miles','Duration'], ascending=True)
+    
+    #Displaying the df in a nicer view
+    display(HTML(df.to_html()))
+
+#Calling the function
+start_scraper()
