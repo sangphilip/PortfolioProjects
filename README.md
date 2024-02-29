@@ -1,1 +1,1 @@
-This is a brief SQL project using data from CovidDeaths.csv.
+This is a brief SQL project using data from CovidDeaths.csv and CovidVaccinations.csv
