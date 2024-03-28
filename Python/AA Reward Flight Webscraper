@@ -184,7 +184,7 @@ def start_scraper():
     df = df.sort_values(['Miles','Duration'], ascending=True)
     
     #Displaying the df in a nicer view
-    display(HTML(df.to_html()))
+    return(display(HTML(df.to_html())))
 
 #Calling the function
 start_scraper()
