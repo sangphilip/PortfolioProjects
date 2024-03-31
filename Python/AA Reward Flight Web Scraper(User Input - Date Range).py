@@ -79,12 +79,13 @@ def scrape_flight_data(ori, des, start_date, end_date):
                 arrival = elementSoup.find("div", {"class": "cell large-3 destination"}).find("div", {"class" : "city-code"}).text.strip()
                 prices = elementSoup.find_all("div", {"class": "cell auto pad-left-xxs pad-right-xxs ng-star-inserted"})
                 
+                #For loop that loops through all different fare prices in a flight
                 for x in prices:
                     miles = x.find("span", {"class" : "per-pax-amount ng-star-inserted"})
                     taxes = x.find("div", {"class" : "per-pax-addon ng-star-inserted"})
                     carriage = x.find("span", {"class" : "hidden-accessible hidden-product-type"})
 
-
+                    #Some fares aren't available so need this if statement otherwise None type data will cause errors
                     if miles and taxes:
                         date.append(formatted_date)
                         mileage.append(miles.text)
@@ -108,13 +109,9 @@ def scrape_flight_data(ori, des, start_date, end_date):
     'Arrival_Time' : arr_time, "Duration" : flight_duration,
     'Class' : flight_class, 'Miles' : new_miles, 'Tax' : tax_amount}
 
-    #Creating the pandas dataframe from the dictionary created before
+    #Some formatting to display data better
     df = pd.DataFrame(dict)
-
-    #Changing the column from float to int to drop decimal points when displaying the values
     df['Miles'] = df['Miles'].astype(int)
-    
-    #Sets date as index instead
     df.set_index('Date', inplace=True)
     
     return df
