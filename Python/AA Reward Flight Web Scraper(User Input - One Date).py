@@ -47,7 +47,7 @@ def format_date(year, month, day):
 
 #This function opens up the webpage using custom url given the user input and web scrapes the necessary information
 #Appending all the necessary information into a list first then a dictionary and finally pandas dataframe
-def scrape_flight_data(ori, des, start_date, end_date):
+def scrape_flight_data(ori, des, start_date):
     date = []
     mileage = []
     tax_amount = []
@@ -58,46 +58,44 @@ def scrape_flight_data(ori, des, start_date, end_date):
     dep_time = []
     arr_time = []
     with webdriver.Chrome() as driver:
-        delta = end_date - start_date
-        for i in range(delta.days + 1):
-            current_date = start_date + timedelta(days=i)
-            formatted_date = format_date(current_date.year, current_date.month, current_date.day)
-            url = f'https://www.aa.com/booking/search?locale=en_US&pax=1&adult=1&type=OneWay&searchType=Award&cabin=&carriers=ALL&slices=%5B%7B%22orig%22:%22{ori}%22,%22origNearby%22:false,%22dest%22:%22{des}%22,%22destNearby%22:false,%22date%22:%22{formatted_date}%22%7D%5D'
-            driver.get(url)
-            sleep(randint(5, 8))
+        current_date = start_date
+        formatted_date = format_date(current_date.year, current_date.month, current_date.day)
+        url = f'https://www.aa.com/booking/search?locale=en_US&pax=1&adult=1&type=OneWay&searchType=Award&cabin=&carriers=ALL&slices=%5B%7B%22orig%22:%22{ori}%22,%22origNearby%22:false,%22dest%22:%22{des}%22,%22destNearby%22:false,%22date%22:%22{formatted_date}%22%7D%5D'
+        driver.get(url)
+        sleep(randint(5, 8))
 
-            flight_rows = driver.find_elements(By.XPATH, '//div[@class="grid-x grid-padding-x ng-star-inserted"]')
+        flight_rows = driver.find_elements(By.XPATH, '//div[@class="grid-x grid-padding-x ng-star-inserted"]')
 
-            for WebElement in flight_rows:
-                elementHTML = WebElement.get_attribute('outerHTML')
-                elementSoup = BeautifulSoup(elementHTML, 'html.parser')
-                
-                #Finding flight duration
-                flight= elementSoup.find("div", {"class" : "duration"}).text.strip()
-                #Finding departure and arrival cities
-                departure = elementSoup.find("div", {"class" : "cell large-3 origin"}).find("div", {"class" : "city-code"}).text.strip()
-                arrival = elementSoup.find("div", {"class": "cell large-3 destination"}).find("div", {"class" : "city-code"}).text.strip()
-                prices = elementSoup.find_all("div", {"class": "cell auto pad-left-xxs pad-right-xxs ng-star-inserted"})
-                
-                #For loop that loops through all different fare prices in a flight
-                for x in prices:
-                    miles = x.find("span", {"class" : "per-pax-amount ng-star-inserted"})
-                    taxes = x.find("div", {"class" : "per-pax-addon ng-star-inserted"})
-                    carriage = x.find("span", {"class" : "hidden-accessible hidden-product-type"})
+        for WebElement in flight_rows:
+            elementHTML = WebElement.get_attribute('outerHTML')
+            elementSoup = BeautifulSoup(elementHTML, 'html.parser')
 
-                    #Some fares aren't available so need this if statement otherwise None type data will cause errors
-                    if miles and taxes:
-                        date.append(formatted_date)
-                        mileage.append(miles.text)
-                        tax_amount.append(taxes.text.replace("+ $", ""))
-                        flight_class.append(carriage.text)
-                        flight_duration.append(flight)
-                        dep.append(departure)
-                        arr.append(arrival)
-                        dep_time.append(elementSoup.find("div", {"class" : "cell large-3 origin"}).find("div", {"class": "flt-times"}).text)
-                        arr_time.append(elementSoup.find("div", {"class": "cell large-3 destination"}).find("div", {"class": "flt-times"}).text)
-                    else:
-                        continue
+            #Finding flight duration
+            flight= elementSoup.find("div", {"class" : "duration"}).text.strip()
+            #Finding departure and arrival cities
+            departure = elementSoup.find("div", {"class" : "cell large-3 origin"}).find("div", {"class" : "city-code"}).text.strip()
+            arrival = elementSoup.find("div", {"class": "cell large-3 destination"}).find("div", {"class" : "city-code"}).text.strip()
+            prices = elementSoup.find_all("div", {"class": "cell auto pad-left-xxs pad-right-xxs ng-star-inserted"})
+
+            #For loop that loops through all different fare prices in a flight
+            for x in prices:
+                miles = x.find("span", {"class" : "per-pax-amount ng-star-inserted"})
+                taxes = x.find("div", {"class" : "per-pax-addon ng-star-inserted"})
+                carriage = x.find("span", {"class" : "hidden-accessible hidden-product-type"})
+
+                #Some fares aren't available so need this if statement otherwise None type data will cause errors
+                if miles and taxes:
+                    date.append(formatted_date)
+                    mileage.append(miles.text)
+                    tax_amount.append(taxes.text.replace("+ $", ""))
+                    flight_class.append(carriage.text)
+                    flight_duration.append(flight)
+                    dep.append(departure)
+                    arr.append(arrival)
+                    dep_time.append(elementSoup.find("div", {"class" : "cell large-3 origin"}).find("div", {"class": "flt-times"}).text)
+                    arr_time.append(elementSoup.find("div", {"class": "cell large-3 destination"}).find("div", {"class": "flt-times"}).text)
+                else:
+                    continue
     
     
     #This removes the K from the end of Miles and changes it to thousands when displaying as a number
@@ -124,14 +122,10 @@ def main():
     month = int(get_user_input('Please enter your earliest flight month: ', validate_month))
     day = int(get_user_input('Please enter your earliest flight day: ', validate_day, month, year))
 
-    l_year = int(input('Please enter your latest flight date year: '))
-    l_month = int(get_user_input('Please enter your latest flight month: ', validate_month))
-    l_day = int(get_user_input('Please enter your latest flight day: ', validate_day, l_month, l_year))
 
     start_date = date(year, month, day)
-    end_date = date(l_year, l_month, l_day)
 
-    appended_data = scrape_flight_data(ori, des, start_date, end_date)
+    appended_data = scrape_flight_data(ori, des, start_date)
     
     if not appended_data.empty:
         appended_data = appended_data.sort_values(['Miles', 'Duration'], ascending=True)
